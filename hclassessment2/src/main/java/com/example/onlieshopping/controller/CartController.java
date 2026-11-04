@@ -1,67 +1,50 @@
-
-
-package com.example.onlineshopping.controller;
-
-import org.springframework.web.bind.annotation.*;
+package com.example.onlieshopping.controller;
 
 import jakarta.validation.Valid;
-
-import com.example.onlieshopping.entity.*;
-import com.example.onlineshopping.dto.CartItemRequest;
-import com.example.onlineshopping.service.CartService;
+import org.springframework.web.bind.annotation.*;
+import com.example.onlieshopping.entity.Cart;
+import com.example.onlieshopping.dto.CartItemRequest;
+import com.example.onlieshopping.service.CartService;
 
 @RestController
 @RequestMapping("/api/cart")
 public class CartController {
-
     private final CartService cartService;
 
     public CartController(CartService cartService) {
         this.cartService = cartService;
     }
-    @PostMapping("/{customerId}/items")
-    public Cart addToCart(
-            @PathVariable Long customerId,
-            @Valid @RequestBody CartItemRequest request) {
 
+    @PostMapping("/add/{customerId}/{productId}")
+    public Cart addToCart(@PathVariable Long customerId,
+                          @PathVariable Long productId,
+                          @RequestParam(defaultValue = "1") Integer quantity) {
+        CartItemRequest request = new CartItemRequest();
+        request.setProductId(productId);
+        request.setQuantity(quantity);
         return cartService.addToCart(customerId, request);
     }
 
-    // GET - View cart
     @GetMapping("/{customerId}")
     public Cart getCart(@PathVariable Long customerId) {
-
         return cartService.getCart(customerId);
     }
 
-    // PUT - Update product quantity
-    @PutMapping("/{customerId}/items/{productId}")
-    public Cart updateCartItem(
-            @PathVariable Long customerId,
-            @PathVariable Long productId,
-            @RequestParam Integer quantity) {
-
-        return cartService.updateCartItem(
-                customerId, productId, quantity);
+    @PutMapping("/update/{cartItemId}")
+    public Cart updateCartItem(@PathVariable Long cartItemId,
+                               @RequestParam Integer quantity) {
+        return cartService.updateCartItem(cartItemId, quantity);
     }
 
-    // DELETE - Remove particular product
-    @DeleteMapping("/{customerId}/items/{productId}")
-    public String removeCartItem(
-            @PathVariable Long customerId,
-            @PathVariable Long productId) {
-
-        cartService.removeCartItem(customerId, productId);
-
+    @DeleteMapping("/remove/{cartItemId}")
+    public String removeCartItem(@PathVariable Long cartItemId) {
+        cartService.removeCartItem(cartItemId);
         return "Product removed from cart successfully";
     }
-    @DeleteMapping("/{customerId}")
+
+    @DeleteMapping("/clear/{customerId}")
     public String clearCart(@PathVariable Long customerId) {
-
         cartService.clearCart(customerId);
-
         return "Cart cleared successfully";
     }
 }
-
-
