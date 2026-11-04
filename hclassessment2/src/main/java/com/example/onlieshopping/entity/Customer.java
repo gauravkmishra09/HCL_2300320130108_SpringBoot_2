@@ -34,8 +34,8 @@ public class Customer {
 
     private String city;
 
-    @OneToOne(mappedBy = "customer",
-            cascade = CascadeType.ALL)
+    @OneToOne(mappedBy = "customer")
+    @com.fasterxml.jackson.annotation.JsonIgnore
     private Cart cart;
 }
 
