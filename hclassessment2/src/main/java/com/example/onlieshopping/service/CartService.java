@@ -1,166 +1,111 @@
 package com.example.onlieshopping.service;
 
-
-
 import java.time.LocalDate;
 import java.util.ArrayList;
-
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import com.example.onlieshopping.entity.*;
-import com.example.onlieshopping.repository.*;
+import com.example.onlieshopping.entity.Cart;
+import com.example.onlieshopping.entity.CartItem;
+import com.example.onlieshopping.entity.Customer;
+import com.example.onlieshopping.entity.Product;
+import com.example.onlieshopping.repository.CartRepository;
+import com.example.onlieshopping.repository.CartItemRepository;
+import com.example.onlieshopping.repository.CustomerRepository;
+import com.example.onlieshopping.repository.ProductRepository;
 import com.example.onlieshopping.dto.CartItemRequest;
 
 @Service
-public class CartService<Cart> {
-
+public class CartService {
     private final CartRepository cartRepository;
     private final CartItemRepository cartItemRepository;
     private final CustomerRepository customerRepository;
     private final ProductRepository productRepository;
 
-    public CartService(CartRepository cartRepository,
-                       CartItemRepository cartItemRepository,
-                       CustomerRepository customerRepository,
-                       ProductRepository productRepository) {
-
+    public CartService(CartRepository cartRepository, CartItemRepository cartItemRepository,
+                       CustomerRepository customerRepository, ProductRepository productRepository) {
         this.cartRepository = cartRepository;
         this.cartItemRepository = cartItemRepository;
         this.customerRepository = customerRepository;
         this.productRepository = productRepository;
     }
-    private <Cart> Cart getOrCreateCart(Long customerId) {
 
+    private Cart getOrCreateCart(Long customerId) {
         Customer customer = customerRepository.findById(customerId)
-                .orElseThrow(() ->
-                        new RuntimeException("Customer not found"));
-
-        return cartRepository.findByCustomerCustomerId(customerId)
-                .orElseGet(() -> {
-
-                    Cart cart = new Cart();
-
-                    cart.setCustomer(customer);
-                    cart.setCreatedDate(LocalDate.now());
-                    cart.setItems(new ArrayList<>());
-
-                    return cartRepository.save(cart);
-                });
+            .orElseThrow(() -> new IllegalArgumentException("Customer not found"));
+        return cartRepository.findByCustomerCustomerId(customerId).orElseGet(() -> {
+            Cart cart = new Cart();
+            cart.setCustomer(customer);
+            cart.setCreatedDate(LocalDate.now());
+            cart.setItems(new ArrayList<>());
+            return cartRepository.save(cart);
+        });
     }
+
     @Transactional
     public Cart addToCart(Long customerId, CartItemRequest request) {
-
+        if (request.getQuantity() == null || request.getQuantity() <= 0) {
+            throw new IllegalArgumentException("Quantity must be greater than zero");
+        }
         Cart cart = getOrCreateCart(customerId);
-
         Product product = productRepository.findById(request.getProductId())
-                .orElseThrow(() ->
-                        new RuntimeException("Product not found"));
-
-        if (request.getQuantity() > product.getQuantity()) {
-            throw new RuntimeException("Insufficient product stock");
+            .orElseThrow(() -> new IllegalArgumentException("Product not found"));
+        CartItem item = cartItemRepository
+            .findByCartCartIdAndProductProductId(cart.getCartId(), product.getProductId())
+            .orElse(null);
+        int newQuantity = request.getQuantity() + (item == null ? 0 : item.getQuantity());
+        if (newQuantity > product.getQuantity()) {
+            throw new IllegalArgumentException("Insufficient product stock");
         }
-
-        CartItem cartItem = cartItemRepository
-                .findByCartCartIdAndProductProductId(
-                        cart.getCartId(), product.getProductId())
-                .orElse(null);
-
-        if (cartItem != null) {
-
-            int newQuantity = cartItem.getQuantity()
-                    + request.getQuantity();
-
-            if (newQuantity > product.getQuantity()) {
-                throw new RuntimeException("Insufficient product stock");
-            }
-
-            cartItem.setQuantity(newQuantity);
-
+        if (item == null) {
+            item = new CartItem();
+            item.setCart(cart);
+            item.setProduct(product);
+            item.setPrice(product.getPrice());
+            item.setQuantity(newQuantity);
+            cart.getItems().add(item);
         } else {
-
-            cartItem = new CartItem();
-
-            cartItem.setCart(cart);
-            cartItem.setProduct(product);
-            cartItem.setQuantity(request.getQuantity());
-            cartItem.setPrice(product.getPrice());
-
-            cart.getItems().add(cartItem);
+            item.setQuantity(newQuantity);
+            item.setPrice(product.getPrice());
         }
-
-        cartItemRepository.save(cartItem);
-
+        cartItemRepository.save(item);
         return cart;
     }
 
     @Transactional(readOnly = true)
     public Cart getCart(Long customerId) {
-
         return cartRepository.findByCustomerCustomerId(customerId)
-                .orElseThrow(() ->
-                        new RuntimeException("Cart not found"));
+            .orElseThrow(() -> new IllegalArgumentException("Cart not found"));
     }
 
-
     @Transactional
-    public Cart updateCartItem(Long customerId,
-                               Long productId,
-                               Integer quantity) {
-
+    public Cart updateCartItem(Long cartItemId, Integer quantity) {
         if (quantity == null || quantity <= 0) {
-            throw new RuntimeException("Quantity must be greater than zero");
+            throw new IllegalArgumentException("Quantity must be greater than zero");
         }
-
-        Cart cart = cartRepository
-                .findByCustomerCustomerId(customerId)
-                .orElseThrow(() ->
-                        new RuntimeException("Cart not found"));
-
-        Product product = productRepository.findById(productId)
-                .orElseThrow(() ->
-                        new RuntimeException("Product not found"));
-
-        if (quantity > product.getQuantity()) {
-            throw new RuntimeException("Insufficient product stock");
+        CartItem item = cartItemRepository.findById(cartItemId)
+            .orElseThrow(() -> new IllegalArgumentException("Cart item not found"));
+        if (quantity > item.getProduct().getQuantity()) {
+            throw new IllegalArgumentException("Insufficient product stock");
         }
-
-        CartItem cartItem = cartItemRepository
-                .findByCartCartIdAndProductProductId(
-                        cart.getCartId(), productId)
-                .orElseThrow(() ->
-                        new RuntimeException("Product not found in cart"));
-
-        cartItem.setQuantity(quantity);
-
-        return cart;
+        item.setQuantity(quantity);
+        item.setPrice(item.getProduct().getPrice());
+        return item.getCart();
     }
 
     @Transactional
-    public void removeCartItem(Long customerId, Long productId) {
-
-        Cart cart = cartRepository
-                .findByCustomerCustomerId(customerId)
-                .orElseThrow(() ->
-                        new RuntimeException("Cart not found"));
-
-        CartItem cartItem = cartItemRepository
-                .findByCartCartIdAndProductProductId(
-                        cart.getCartId(), productId)
-                .orElseThrow(() ->
-                        new RuntimeException("Product not found in cart"));
-
-        cart.getItems().remove(cartItem);
+    public void removeCartItem(Long cartItemId) {
+        CartItem item = cartItemRepository.findById(cartItemId)
+            .orElseThrow(() -> new IllegalArgumentException("Cart item not found"));
+        Cart cart = item.getCart();
+        cart.getItems().remove(item);
+        cartItemRepository.delete(item);
     }
 
     @Transactional
     public void clearCart(Long customerId) {
-
-        Cart cart = cartRepository
-                .findByCustomerCustomerId(customerId)
-                .orElseThrow(() ->
-                        new RuntimeException("Cart not found"));
-
+        Cart cart = cartRepository.findByCustomerCustomerId(customerId)
+            .orElseThrow(() -> new IllegalArgumentException("Cart not found"));
+        cartItemRepository.deleteAll(cart.getItems());
         cart.getItems().clear();
     }
 }
