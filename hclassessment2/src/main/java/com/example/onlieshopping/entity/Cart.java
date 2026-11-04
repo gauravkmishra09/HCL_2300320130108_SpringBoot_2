@@ -7,7 +7,6 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.NoArgsConstructor;
-import com.fasterxml.jackson.annotation.JsonIgnore;
 
 @Entity
 @Getter
@@ -21,7 +20,7 @@ public class Cart {
 
     @OneToOne
     @JoinColumn(name = "customer_id", unique = true, nullable = false)
-    @JsonIgnore
+    @com.fasterxml.jackson.annotation.JsonIgnore
     private Customer customer;
 
     private LocalDate createdDate;
