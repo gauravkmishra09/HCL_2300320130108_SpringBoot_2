@@ -12,7 +12,6 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @Table(name = "customers")
 public class Customer {
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long customerId;
@@ -28,8 +27,8 @@ public class Customer {
     @NotBlank(message = "Password is required")
     private String password;
 
-    @Pattern(regexp = "^[0-9]{10}$",
-            message = "Mobile must contain 10 digits")
+    @NotBlank(message = "Mobile is required")
+    @Pattern(regexp = "^[0-9]{10}$", message = "Mobile must contain 10 digits")
     private String mobile;
 
     private String city;
@@ -38,4 +37,3 @@ public class Customer {
     @com.fasterxml.jackson.annotation.JsonIgnore
     private Cart cart;
 }
-
